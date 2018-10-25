@@ -2,8 +2,9 @@
 
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
+#include <boost/sml.hpp>
 
-#include "Service/Service.hpp"
+#include "Service.hpp"
 
 namespace Server {
 

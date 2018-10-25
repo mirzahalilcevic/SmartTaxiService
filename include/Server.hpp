@@ -3,7 +3,7 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
-#include "Server/Worker.hpp"
+#include "Worker.hpp"
 
 namespace Server {
 

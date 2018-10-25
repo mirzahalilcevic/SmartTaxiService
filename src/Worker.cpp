@@ -1,4 +1,4 @@
-#include "Server/Worker.hpp"
+#include "Worker.hpp"
 
 namespace Server {
 

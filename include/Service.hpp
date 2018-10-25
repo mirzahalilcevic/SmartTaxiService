@@ -2,7 +2,7 @@
 
 #include <caf/all.hpp>
 
-#include "Service/ServiceCore.hpp"
+#include "ServiceCore.hpp"
 
 namespace Service {
 
