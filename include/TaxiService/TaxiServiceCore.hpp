@@ -1,13 +1,11 @@
 #pragma once
 
-#include <memory>
-
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
-#include "TaxiStateTransitions.hpp" 
+#include "TaxiService/TaxiStateTransitions.hpp" 
 
-namespace Service {
+namespace TaxiService {
 
 struct Taxi
 {
@@ -26,7 +24,7 @@ struct Taxi
       stateMachine{std::make_unique<StateMachine>(sender, wrkr, hndl)} {}
 };
 
-class ServiceCore
+class TaxiServiceCore
 {
   public:
     inline void init(caf::event_based_actor* sender)
@@ -59,11 +57,14 @@ class ServiceCore
 
     inline bool sendRequest(const Request& request)
     {
-			try {
+			try
+      {
       	auto& taxi = getNearestTaxi(request);
       	taxi.stateMachine->process_event(request);
 				return true;
-			} catch (...) {
+			}
+      catch (const std::logic_error e)
+      {
 				return false;
 			}
     }
@@ -76,4 +77,4 @@ class ServiceCore
     Taxi& getNearestTaxi(const Request&);
 };
 
-} // Service
+} // TaxiService

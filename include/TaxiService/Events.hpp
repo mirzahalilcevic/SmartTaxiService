@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace Service {
+namespace TaxiService {
 
 struct Request
 {
@@ -13,7 +13,7 @@ struct Request
 
 struct Response
 {
-
+  bool accept;
 };
 
-} // Service
+} // TaxiService

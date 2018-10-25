@@ -1,5 +1,5 @@
-#include "Server.hpp"
-#include "Service.hpp"
+#include "TaxiServer/TaxiServer.hpp"
+#include "TaxiService/TaxiService.hpp"
 
 int main(int argc, char const *argv[])
 {
@@ -13,9 +13,9 @@ int main(int argc, char const *argv[])
   cfg.load<caf::io::middleman>();
   caf::actor_system system{cfg};
 
-  auto service = system.spawn(Service::serviceBehavior);
-  system.middleman().spawn_server(Server::serverBehavior, std::stoi(argv[1]), 
-      service);
+  auto service = system.spawn(TaxiService::taxiServiceBehavior);
+  system.middleman().spawn_server(TaxiServer::taxiServerBehavior,
+      std::stoi(argv[1]), service);
 
   return 0;
 }

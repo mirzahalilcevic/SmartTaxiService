@@ -1,10 +1,10 @@
-#include "Service.hpp"
+#include "TaxiService/TaxiService.hpp"
 
-namespace Service {
+namespace TaxiService {
 
 using namespace caf;
 
-behavior serviceBehavior(stateful_actor<ServiceState>* self)
+behavior taxiServiceBehavior(stateful_actor<TaxiServiceState>* self)
 {
   self->state.core.init(self);
   return {
@@ -28,4 +28,4 @@ behavior serviceBehavior(stateful_actor<ServiceState>* self)
   };
 }
 
-} // Service
+} // TaxiService

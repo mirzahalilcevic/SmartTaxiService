@@ -1,14 +1,14 @@
-#include "Worker.hpp"
+#include "TaxiServer/TaxiWorker.hpp"
 
-namespace Server {
+namespace TaxiServer {
 
 using namespace caf;
 
-behavior workerBehavior(Worker* self, io::connection_handle handle, 
+behavior taxiWorkerBehavior(TaxiWorker* self, io::connection_handle handle, 
     caf::actor service)
 {
   self->configure_read(handle, io::receive_policy::at_most(128));
-  self->send(service, Service::SubscribeAtom::value, handle);
+  self->send(service, TaxiService::SubscribeAtom::value, handle);
   return {
     
     [=](const io::new_data_msg& msg) 
@@ -20,7 +20,7 @@ behavior workerBehavior(Worker* self, io::connection_handle handle,
     [=](const io::connection_closed_msg& msg) 
     {
       aout(self) << to_string(msg) << std::endl;
-      self->send(service, Service::UnsubscribeAtom::value, msg.handle);
+      self->send(service, TaxiService::UnsubscribeAtom::value, msg.handle);
       self->quit();
     },
 
@@ -33,4 +33,4 @@ behavior workerBehavior(Worker* self, io::connection_handle handle,
   };
 }
 
-} // Server
+} // TaxiServer
