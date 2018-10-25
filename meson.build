@@ -1,4 +1,4 @@
-project('SmartTaxiService', 'cpp', default_options: ['cpp_std=c++14'])
+project('SmartTaxiService', 'cpp', default_options: 'cpp_std=c++14')
 
 caf_core = dependency('caf-core')
 caf_io = dependency('caf-io')
