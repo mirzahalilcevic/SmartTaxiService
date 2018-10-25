@@ -1,29 +1,26 @@
-#include "worker.hpp"
-#include "service.hpp"
+#include "Server/Worker.hpp"
 
-namespace server {
+namespace Server {
 
 using namespace caf;
 
-behavior worker_behavior(worker* self, io::connection_handle handle, 
-    caf::actor service_handle)
+behavior workerBehavior(Worker* self, io::connection_handle handle, 
+    caf::actor service)
 {
-  aout(self) << "fork on new connection" << std::endl;
   self->configure_read(handle, io::receive_policy::at_most(128));
-  self->send(service_handle, taxi_service::subscribe_atom::value, handle);
+  self->send(service, Service::SubscribeAtom::value, handle);
   return {
     
     [=](const io::new_data_msg& msg) 
     {
       aout(self) << to_string(msg) << std::endl;
-      self->send(service_handle, msg);
+      self->send(service, msg);
     },
 
     [=](const io::connection_closed_msg& msg) 
     {
       aout(self) << to_string(msg) << std::endl;
-      self->send(service_handle, taxi_service::unsubscribe_atom::value, 
-          msg.handle);
+      self->send(service, Service::UnsubscribeAtom::value, msg.handle);
       self->quit();
     },
 
@@ -36,4 +33,4 @@ behavior worker_behavior(worker* self, io::connection_handle handle,
   };
 }
 
-} // server
+} // Server

@@ -1,21 +1,21 @@
-#include "service.hpp"
+#include "Service/Service.hpp"
 
-namespace taxi_service {
+namespace Service {
 
 using namespace caf;
 
-behavior service_behavior(stateful_actor<service_state>* self)
+behavior serviceBehavior(stateful_actor<ServiceState>* self)
 {
   self->state.core.init(self);
   return {
     
-    [=](subscribe_atom, caf::io::connection_handle handle)
+    [=](SubscribeAtom, caf::io::connection_handle handle)
     {
       self->state.core.subscribe(actor_cast<actor>(self->current_sender()),
           handle);
     },
 
-    [=](unsubscribe_atom, caf::io::connection_handle handle)
+    [=](UnsubscribeAtom, caf::io::connection_handle handle)
     {
       self->state.core.unsubscribe(handle);
     },
@@ -28,4 +28,4 @@ behavior service_behavior(stateful_actor<service_state>* self)
   };
 }
 
-} // taxi_service
+} // Service
