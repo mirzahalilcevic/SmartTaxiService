@@ -2,8 +2,8 @@
 
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
-#include <boost/sml.hpp>
 
+#include "Messages.hpp"
 #include "TaxiService/TaxiService.hpp"
 
 namespace TaxiServer {

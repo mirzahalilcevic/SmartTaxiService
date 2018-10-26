@@ -2,79 +2,102 @@
 
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
+#include <boost/sml.hpp>
 
-#include "TaxiService/TaxiStateTransitions.hpp" 
+#include "ServiceCore.hpp"
+#include "Messages.hpp"
+#include "Tools/json.hpp"
+#include "TaxiService/TaxiStateTransitions.hpp"
 
 namespace TaxiService {
 
-struct Taxi
-{
-  using TaxiData = struct { double latitude; double longitude;};
-  using StateMachine = boost::sml::sm<TaxiStateTransitions>;
+using json = nlohmann::json;
 
-  caf::actor worker;
-  caf::io::connection_handle handle;
-  TaxiData data;
-  std::unique_ptr<StateMachine> stateMachine;
-	bool isLocationReceived = false;
-
-  Taxi(caf::event_based_actor* sender, caf::actor wrkr, 
-      caf::io::connection_handle hndl)
-    : worker{wrkr}, handle{hndl}, 
-      stateMachine{std::make_unique<StateMachine>(sender, wrkr, hndl)} {}
-};
-
-class TaxiServiceCore
+class TaxiServiceCore : public ServiceCore
 {
   public:
-    inline void init(caf::event_based_actor* sender)
-    {
-      sender_ = sender;
-    }
+  struct TaxiType
+  {
+    using TaxiData = struct { double latitude; double longitude; };
+    using StateMachine = boost::sml::sm<TaxiStateTransitions>;
 
-    inline void subscribe(caf::actor worker, caf::io::connection_handle handle)
-    {
-      activeTaxis_.push_back(Taxi{sender_, worker, handle});
-    }
+    caf::actor worker;
+    caf::io::connection_handle handle;
+    TaxiData data;
+    std::unique_ptr<StateMachine> stateMachine;
+	  bool isLocationReceived = false;
 
-    inline void unsubscribe(caf::io::connection_handle handle)
-    {
-      auto it = std::find_if(activeTaxis_.cbegin(), activeTaxis_.cend(), 
-          [handle](const Taxi& t) { return t.handle == handle; });
-      if (it == activeTaxis_.cend()) return;
+    TaxiType(TaxiServiceCore* core, caf::actor w, caf::io::connection_handle h)
+        : worker{w}, handle{h}, 
+        stateMachine{std::make_unique<StateMachine>(core, handle)} {}
+  };
+  
+  inline void init(caf::event_based_actor* sender)
+  {
+    sender_ = sender;
+  }
 
-      activeTaxis_.erase(it);
-    }
+  inline void subscribe(caf::actor worker, caf::io::connection_handle handle)
+  {
+    taxis_.push_back(TaxiType{this, worker, handle});
+  }
 
-    inline void handle(const caf::io::new_data_msg& msg)
-    {
-      auto it = std::find_if(activeTaxis_.begin(), activeTaxis_.end(), 
-          [msg](const Taxi& t) { return t.handle == msg.handle; });
-      if (it == activeTaxis_.end()) return;
+  inline void unsubscribe(caf::io::connection_handle handle)
+  {
+    auto it = std::find_if(taxis_.cbegin(), taxis_.cend(), 
+        [handle](const TaxiType& taxi)
+        { 
+          return taxi.handle == handle; 
+        });
+    
+    if (it == taxis_.cend())
+      return;
+    else
+      taxis_.erase(it);
+  }
 
-      dispatch(*it, msg.buf);
-    }
+  inline void handle(const caf::io::new_data_msg& msg)
+  {
+   	std::string buffer;
+    buffer.reserve(msg.buf.size());
+  	std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
+  	auto j = json::parse(buffer.c_str());
+ 
+    auto it = std::find_if(taxis_.begin(), taxis_.end(), 
+        [msg](const TaxiType& taxi)
+        { 
+          return taxi.handle == msg.handle; 
+        });
 
-    inline bool sendRequest(const Request& request)
-    {
-			try
-      {
-      	auto& taxi = getNearestTaxi(request);
-      	taxi.stateMachine->process_event(request);
-				return true;
-			}
-      catch (const std::logic_error e)
-      {
-				return false;
-			}
-    }
+    if (it != taxis_.end()) dispatch(*it, j);
+  }
+
+  inline void send(caf::actor worker, const std::string& data) override
+  {
+    sender_->send(worker, data);
+  }
+
+  inline caf::actor getWorker(caf::io::connection_handle handle) override
+  {
+    auto it = std::find_if(taxis_.begin(), taxis_.end(), 
+        [handle](const TaxiType& taxi)
+        { 
+          return taxi.handle == handle; 
+        });
+
+    if (it != taxis_.end()) 
+      return it->worker;
+    else
+      throw std::logic_error{"taxi not found"};
+  }
 
   private:
-    caf::event_based_actor* sender_;
-    std::vector<Taxi> activeTaxis_; 
+  caf::event_based_actor* sender_;
+  std::vector<TaxiType> taxis_; 
 
-    void dispatch(Taxi&, const std::vector<char>&);
-    Taxi& getNearestTaxi(const Request&);
+  void dispatch(TaxiType&, const json&);
+  bool sendRequest(const Request&);
+  auto& getNearestTaxi(const Request&);
 };
 
 } // TaxiService

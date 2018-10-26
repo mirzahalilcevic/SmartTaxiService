@@ -1,13 +1,12 @@
 #pragma once
 
 #include <caf/all.hpp>
+#include <caf/io/all.hpp>
 
+#include "Messages.hpp"
 #include "TaxiService/TaxiServiceCore.hpp"
 
 namespace TaxiService {
-
-using SubscribeAtom = caf::atom_constant<caf::atom("sub")>;
-using UnsubscribeAtom = caf::atom_constant<caf::atom("unsub")>;
 
 struct TaxiServiceState { TaxiServiceCore core; };
 

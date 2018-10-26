@@ -1,18 +1,10 @@
 #include "TaxiService/TaxiServiceCore.hpp"
 #include "Tools/haversine.hpp"
-#include "Tools/json.hpp"
 
 namespace TaxiService {
 
-using json = nlohmann::json;
-
-void TaxiServiceCore::dispatch(Taxi& taxi, const std::vector<char>& buf)
+void TaxiServiceCore::dispatch(TaxiType& taxi, const json& j)
 {
-	std::string msg;
-  msg.reserve(buf.size());
-	std::copy(buf.begin(), buf.end() - 2, msg.begin());
-	auto j = json::parse(msg.c_str());
-  
   if (j["type"] == "location")
   {
     taxi.data.latitude = j["latitude"];
@@ -26,10 +18,10 @@ void TaxiServiceCore::dispatch(Taxi& taxi, const std::vector<char>& buf)
   }
 }
 
-Taxi& TaxiServiceCore::getNearestTaxi(const Request& request)
+auto& TaxiServiceCore::getNearestTaxi(const Request& request)
 {
-	auto target = activeTaxis_.begin();
-	for (auto it = activeTaxis_.begin() + 1; it != activeTaxis_.end(); ++it)
+	auto target = taxis_.begin();
+	for (auto it = taxis_.begin() + 1; it != taxis_.end(); ++it)
 	{
 		if (!(it->isLocationReceived)) continue;
 
@@ -42,6 +34,21 @@ Taxi& TaxiServiceCore::getNearestTaxi(const Request& request)
 		throw std::logic_error{"no taxi available"};
 	else
 		return *target;
+}
+
+bool TaxiServiceCore::sendRequest(const Request& request)
+{
+  try
+  {
+   	auto& taxi = getNearestTaxi(request);
+   	taxi.stateMachine->process_event(request);
+		return true;
+	}
+  catch (const std::logic_error e)
+  {
+    std::cerr << e.what() << std::endl;
+		return false;
+	}
 }
 
 } // TaxiService

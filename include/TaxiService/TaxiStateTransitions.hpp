@@ -4,21 +4,22 @@
 #include <caf/io/all.hpp>
 #include <boost/sml.hpp>
 
-#include "TaxiService/Events.hpp"
+#include "Messages.hpp"
 #include "Tools/json.hpp"
+#include "ServiceCore.hpp"
 
 namespace TaxiService {
 
 using json = nlohmann::json;
 
 class TaxiStateTransitions {
-public:
+  public:
   auto operator()() const noexcept
   {
     using namespace boost::sml;
 
-    auto sendRequest = [](caf::event_based_actor* sender, caf::actor worker,
-        caf::io::connection_handle handle, auto event) 
+    auto sendRequest = [](ServiceCore* core, caf::io::connection_handle handle,
+        auto event) 
     {
       json request;
       request["type"] = "request";
@@ -26,7 +27,7 @@ public:
       request["latitude"] = event.latitude;
       request["longitude"] = event.longitude;
 
-      sender->send(worker, handle, request.dump());
+      core->send(core->getWorker(handle), request.dump());
     };
     
     auto notifyResponse = [](auto event)
