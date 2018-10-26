@@ -5,9 +5,13 @@
 #include <boost/sml.hpp>
 
 #include "ServiceCore.hpp"
+#include "Messages.hpp"
+#include "Tools/json.hpp"
 #include "ClientService/ClientStateTransitions.hpp"
 
 namespace ClientService {
+
+using json = nlohmann::json;
 
 class ClientServiceCore : public ServiceCore
 {
@@ -20,15 +24,16 @@ class ClientServiceCore : public ServiceCore
     caf::io::connection_handle handle;
     std::unique_ptr<StateMachine> stateMachine;
 
-    ClientType(ClientServiceCore* core, caf::actor w,
+    ClientType(ServiceCore* core, caf::actor w,
         caf::io::connection_handle h)
       : worker{w}, handle{h}, 
         stateMachine{std::make_unique<StateMachine>(core, handle)} {}
   };
   
-  inline void init(caf::event_based_actor* sender)
+  inline void init(caf::event_based_actor* sender, caf::actor taxiService)
   {
     sender_ = sender;
+    taxiService_ = taxiService;
   }
 
   inline void subscribe(caf::actor worker, caf::io::connection_handle handle)
@@ -52,7 +57,24 @@ class ClientServiceCore : public ServiceCore
 
   inline void handle(const caf::io::new_data_msg& msg)
   {
-    // TODO
+    std::string buffer;
+    buffer.reserve(msg.buf.size());
+  	std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
+  	auto j = json::parse(buffer.c_str());
+    
+    auto it = std::find_if(clients_.begin(), clients_.end(), 
+        [msg](const ClientType& taxi)
+        { 
+          return taxi.handle == msg.handle; 
+        });
+
+    if (it == clients_.end()) return;
+
+    if (j["type"] == "request")
+    {
+      Request request{j["location"], j["latitude"], j["longitude"]};
+      it->stateMachine->process_event(request); 
+    }
   }
   
   inline void send(caf::actor worker, const std::string& data) override
@@ -74,9 +96,15 @@ class ClientServiceCore : public ServiceCore
       throw std::logic_error{"client not found"};
   }
 
+  inline caf::actor getTaxiService() override
+  {
+    return taxiService_;
+  }
+
   private:
   caf::event_based_actor* sender_;
   std::vector<ClientType> clients_; 
+  caf::actor taxiService_;
 };
 
 } // ClientService

@@ -35,8 +35,10 @@ class TaxiStateTransitions {
     };
 
     return make_transition_table(
-      *"Nromal"_s + event<Request> / sendRequest = "WaitingForResponse"_s,
+
+      *"Normal"_s + event<Request> / sendRequest = "WaitingForResponse"_s,
       "WaitingForResponse"_s + event<Response> / notifyResponse = "Normal"_s
+
     );
   }
 };

@@ -10,6 +10,7 @@ namespace ClientService {
 
 struct ClientServiceState { ClientServiceCore core; };
 
-caf::behavior clientServiceBehavior(caf::stateful_actor<ClientServiceState>*);
+caf::behavior clientServiceBehavior(caf::stateful_actor<ClientServiceState>*,
+    caf::actor);
 
 } // ClientService

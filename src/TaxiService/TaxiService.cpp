@@ -23,6 +23,11 @@ behavior taxiServiceBehavior(stateful_actor<TaxiServiceState>* self)
     [=](const caf::io::new_data_msg& msg)
     {
       self->state.core.handle(msg);
+    },
+
+    [=](const std::string& msg)
+    {
+      self->state.core.sendRequest(msg);
     }
 
   };

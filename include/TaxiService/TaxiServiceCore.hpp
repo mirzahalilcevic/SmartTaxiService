@@ -7,6 +7,7 @@
 #include "ServiceCore.hpp"
 #include "Messages.hpp"
 #include "Tools/json.hpp"
+#include "Tools/Haversine.hpp"
 #include "TaxiService/TaxiStateTransitions.hpp"
 
 namespace TaxiService {
@@ -27,7 +28,7 @@ class TaxiServiceCore : public ServiceCore
     std::unique_ptr<StateMachine> stateMachine;
 	  bool isLocationReceived = false;
 
-    TaxiType(TaxiServiceCore* core, caf::actor w, caf::io::connection_handle h)
+    TaxiType(ServiceCore* core, caf::actor w, caf::io::connection_handle h)
         : worker{w}, handle{h}, 
         stateMachine{std::make_unique<StateMachine>(core, handle)} {}
   };
@@ -91,13 +92,58 @@ class TaxiServiceCore : public ServiceCore
       throw std::logic_error{"taxi not found"};
   }
 
+  inline caf::actor getTaxiService() override
+  {
+    // nop
+  }
+
+  inline void sendRequest(const std::string& msg)
+  {
+    auto j = json::parse(msg);
+    Request request{j["location"], j["latitude"], j["longitude"]};
+    matchAndSend(request);
+  }
+
   private:
   caf::event_based_actor* sender_;
   std::vector<TaxiType> taxis_; 
 
   void dispatch(TaxiType&, const json&);
-  bool sendRequest(const Request&);
+  bool matchAndSend(const Request&);
   auto& getNearestTaxi(const Request&);
 };
+
+auto& TaxiServiceCore::getNearestTaxi(const Request& request)
+{
+	auto target = taxis_.begin();
+	for (auto it = taxis_.begin() + 1; it != taxis_.end(); ++it)
+	{
+		if (!(it->isLocationReceived)) continue;
+
+		if (distanceEarth(request.latitude, request.longitude, it->data.latitude,
+				it->data.longitude) < distanceEarth(request.latitude, request.longitude,
+				target->data.latitude, target->data.longitude)) 
+			target = it;
+	}	
+	if (!(target->isLocationReceived))
+		throw std::logic_error{"no taxi available"};
+	else
+		return *target;
+}
+
+bool TaxiServiceCore::matchAndSend(const Request& request)
+{
+  try
+  {
+   	auto& taxi = getNearestTaxi(request);
+   	taxi.stateMachine->process_event(request);
+		return true;
+	}
+  catch (const std::logic_error e)
+  {
+    std::cerr << e.what() << std::endl;
+		return false;
+	}
+}
 
 } // TaxiService

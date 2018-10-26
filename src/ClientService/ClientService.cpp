@@ -4,9 +4,10 @@ namespace ClientService {
 
 using namespace caf;
 
-behavior clientServiceBehavior(stateful_actor<ClientServiceState>* self)
+behavior clientServiceBehavior(stateful_actor<ClientServiceState>* self,
+    caf::actor taxiService)
 {
-  self->state.core.init(self);
+  self->state.core.init(self, taxiService);
   return {
     
     [=](SubscribeAtom, caf::io::connection_handle handle)

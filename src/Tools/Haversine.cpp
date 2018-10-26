@@ -1,9 +1,4 @@
-#pragma once
-
-#include <math.h>
-#include <cmath> 
-
-#define earthRadiusKm 6371.0
+#include "Tools/Haversine.hpp"
 
 // This function converts decimal degrees to radians
 double deg2rad(double deg) {
