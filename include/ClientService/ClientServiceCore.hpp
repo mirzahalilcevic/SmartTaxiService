@@ -3,6 +3,9 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 #include <boost/sml.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "ServiceCore.hpp"
 #include "Messages.hpp"
@@ -60,19 +63,31 @@ class ClientServiceCore : public ServiceCore
     std::string buffer;
     buffer.reserve(msg.buf.size());
   	std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
-  	auto j = json::parse(buffer.c_str());
+
+    json j;
+  	try 
+    {
+      j = json::parse(buffer.c_str()); 
+    } 
+    catch(...) 
+    { 
+      std::cout << "[client] json parse error" << std::endl;
+      return; 
+    }
     
     auto it = std::find_if(clients_.begin(), clients_.end(), 
-        [msg](const ClientType& taxi)
+        [msg](const ClientType& client)
         { 
-          return taxi.handle == msg.handle; 
+          return client.handle == msg.handle; 
         });
 
     if (it == clients_.end()) return;
 
     if (j["type"] == "request")
     {
-      Request request{j["location"], j["latitude"], j["longitude"]};
+      boost::uuids::uuid id = gen_();
+      Request request{boost::lexical_cast<std::string>(id), j["location"],
+          j["latitude"], j["longitude"]};
       it->stateMachine->process_event(request); 
     }
   }
@@ -101,7 +116,14 @@ class ClientServiceCore : public ServiceCore
     return taxiService_;
   }
 
+  inline bool isFirst(caf::io::connection_handle handle, const std::string& id)
+      override
+  {
+    // nop
+  }
+
   private:
+  boost::uuids::basic_random_generator<boost::mt19937> gen_;
   caf::event_based_actor* sender_;
   std::vector<ClientType> clients_; 
   caf::actor taxiService_;

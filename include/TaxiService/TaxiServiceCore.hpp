@@ -62,7 +62,17 @@ class TaxiServiceCore : public ServiceCore
    	std::string buffer;
     buffer.reserve(msg.buf.size());
   	std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
-  	auto j = json::parse(buffer.c_str());
+
+    json j;
+  	try 
+    {
+      j = json::parse(buffer.c_str()); 
+    } 
+    catch(...) 
+    { 
+      std::cout << "[taxi] json parse error" << std::endl;
+      return; 
+    }
  
     auto it = std::find_if(taxis_.begin(), taxis_.end(), 
         [msg](const TaxiType& taxi)
@@ -97,52 +107,86 @@ class TaxiServiceCore : public ServiceCore
     // nop
   }
 
+  inline bool isFirst(caf::io::connection_handle handle, const std::string& id)
+      override
+  {
+    auto it = std::find_if(requests_.begin(), requests_.end(),
+        [id](const RequestEntry& re)
+        {
+          return re.request.id == id;
+        });
+    
+    if (it != requests_.end())
+    {
+      for (auto taxi : it->taxis) taxi->stateMachine->process_event(Cancel{id});
+      requests_.erase(it);
+      return true;
+    }
+    else
+      return false;
+  }
+
   inline void sendRequest(const std::string& msg)
   {
-    auto j = json::parse(msg);
-    Request request{j["location"], j["latitude"], j["longitude"]};
-    matchAndSend(request);
+    json j;
+    try 
+    {
+      j = json::parse(msg.c_str()); 
+    } 
+    catch(...) 
+    { 
+      std::cout << "[taxi] json parse error" << std::endl;
+      return; 
+    }
+ 
+
+
+    Request request{j["id"], j["location"], j["latitude"], j["longitude"]};
+    match(request);
   }
 
   private:
+  using RequestEntry = struct { Request request; std::vector<TaxiType*> taxis; };
+
   caf::event_based_actor* sender_;
   std::vector<TaxiType> taxis_; 
+  std::vector<RequestEntry> requests_;
 
   void dispatch(TaxiType&, const json&);
-  bool matchAndSend(const Request&);
-  auto& getNearestTaxi(const Request&);
+  void match(const Request&);
 };
 
-auto& TaxiServiceCore::getNearestTaxi(const Request& request)
-{
-	auto target = taxis_.begin();
-	for (auto it = taxis_.begin() + 1; it != taxis_.end(); ++it)
-	{
-		if (!(it->isLocationReceived)) continue;
-
-		if (distanceEarth(request.latitude, request.longitude, it->data.latitude,
-				it->data.longitude) < distanceEarth(request.latitude, request.longitude,
-				target->data.latitude, target->data.longitude)) 
-			target = it;
-	}	
-	if (!(target->isLocationReceived))
-		throw std::logic_error{"no taxi available"};
-	else
-		return *target;
-}
-
-bool TaxiServiceCore::matchAndSend(const Request& request)
+void TaxiServiceCore::match(const Request& request)
 {
   try
   {
-   	auto& taxi = getNearestTaxi(request);
-   	taxi.stateMachine->process_event(request);
-		return true;
+    RequestEntry entry;
+    entry.request = request;
+    requests_.push_back(entry);
+
+    auto it = std::find_if(requests_.begin(), requests_.end(),
+        [request](const RequestEntry& re)
+        {
+          return re.request.id == request.id; 
+        });
+
+    for (auto& taxi : taxis_)
+    {
+      if (!taxi.isLocationReceived) continue;
+
+   	  double radius = distanceEarth(request.latitude, request.longitude, 
+          taxi.data.latitude, taxi.data.longitude);
+
+      if (radius < 1.0)
+      {
+        it->taxis.push_back(&taxi);
+        taxi.stateMachine->process_event(request);
+      }
+    }
 	}
   catch (const std::logic_error e)
   {
     std::cerr << e.what() << std::endl;
-		return false;
 	}
 }
 

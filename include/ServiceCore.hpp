@@ -11,6 +11,7 @@ class ServiceCore
   virtual void send(caf::actor, const std::string&) = 0;
   virtual caf::actor getWorker(caf::io::connection_handle) = 0;
   virtual caf::actor getTaxiService() = 0;
+  virtual bool isFirst(caf::io::connection_handle, const std::string&) = 0;
   virtual ~ServiceCore() = default;
 };
 

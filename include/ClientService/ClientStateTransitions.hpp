@@ -23,11 +23,12 @@ class ClientStateTransitions {
     {
       json request;
       request["type"] = "request";
+      request["id"] = event.id;
       request["location"] = event.location;
       request["latitude"] = event.latitude;
       request["longitude"] = event.longitude;
 
-      core->send(core->getTaxiService(), request.dump()); // seg fault
+      core->send(core->getTaxiService(), request.dump());
     };
 
     auto notifyResponse = [](){};
@@ -35,6 +36,7 @@ class ClientStateTransitions {
     return make_transition_table(
       
       *"Normal"_s + event<Request> / sendRequest = "WaitingForResponse"_s,
+
       "WaitingForResponse"_s + event<Response> / notifyResponse = "Normal"_s
 
     );

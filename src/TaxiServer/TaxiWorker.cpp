@@ -26,7 +26,7 @@ behavior taxiWorkerBehavior(TaxiWorker* self, io::connection_handle handle,
 
     [=](const std::string& data)
     {
-      self->write(handle, data.length(), data.c_str());
+      self->write(handle, data.length(), (const void *) data.c_str());
       self->flush(handle);
     }
 

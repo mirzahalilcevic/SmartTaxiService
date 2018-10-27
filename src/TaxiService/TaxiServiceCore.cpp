@@ -12,7 +12,7 @@ void TaxiServiceCore::dispatch(TaxiType& taxi, const json& j)
   }
   else if (j["type"] == "response")
   {
-    Response response{j["response"]};
+    Response response{j["id"], j["accept"]};
     taxi.stateMachine->process_event(response);
   }
 }
