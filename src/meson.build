@@ -7,7 +7,8 @@ srcs = [
   'TaxiService/TaxiServiceCore.cpp',
   'ClientServer/ClientServer.cpp',
   'ClientServer/ClientWorker.cpp',
-  'ClientService/ClientService.cpp'
+  'ClientService/ClientService.cpp',
+  'ClientService/ClientServiceCore.cpp'
 ]
 
 taxi_dep = declare_dependency(sources: srcs, include_directories: [include_dir,

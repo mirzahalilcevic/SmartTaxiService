@@ -59,18 +59,20 @@ class TaxiServiceCore : public ServiceCore
 
   inline void handle(const caf::io::new_data_msg& msg)
   {
-   	std::string buffer;
-    buffer.reserve(msg.buf.size());
-  	std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
+   	// std::string buffer;
+    // buffer.reserve(msg.buf.size());
+  	// std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
+
+    // removeGarbage(buffer);
 
     json j;
   	try 
     {
-      j = json::parse(buffer.c_str()); 
+      j = json::parse(msg.buf); 
     } 
-    catch(...) 
+    catch(const json::exception& e) 
     { 
-      std::cout << "[taxi] json parse error" << std::endl;
+      std::cout << e.what() << std::endl;
       return; 
     }
  
@@ -107,18 +109,37 @@ class TaxiServiceCore : public ServiceCore
     // nop
   }
 
-  inline bool isFirst(caf::io::connection_handle handle, const std::string& id)
-      override
+  inline bool isFirst(caf::io::connection_handle handle, 
+      Response response) override
   {
     auto it = std::find_if(requests_.begin(), requests_.end(),
-        [id](const RequestEntry& re)
+        [response](const RequestEntry& re)
         {
-          return re.request.id == id;
+          return re.request.id == response.id;
         });
     
     if (it != requests_.end())
     {
-      for (auto taxi : it->taxis) taxi->stateMachine->process_event(Cancel{id});
+      // response.time = calculateTime(it->request, handle);
+
+      auto taxiIt = std::find_if(taxis_.begin(), taxis_.end(),
+          [handle](const TaxiType& taxi)
+          {
+            return handle != taxi.handle; 
+          });
+
+      response.latitude = taxiIt->data.latitude;
+      response.longitude = taxiIt->data.longitude;
+
+      sender_->send(it->clientService, response);
+
+      std::for_each(it->taxis.begin(), it->taxis.end(),
+          [=](TaxiType* taxi)
+          {
+            if (handle != taxi->handle)
+              taxi->stateMachine->process_event(Cancel{response.id});
+          });
+      
       requests_.erase(it);
       return true;
     }
@@ -126,42 +147,46 @@ class TaxiServiceCore : public ServiceCore
       return false;
   }
 
-  inline void sendRequest(const std::string& msg)
+  inline void sendRequest(const std::string& msg, caf::actor clientService)
   {
     json j;
     try 
     {
       j = json::parse(msg.c_str()); 
     } 
-    catch(...) 
+    catch(const json::exception& e) 
     { 
-      std::cout << "[taxi] json parse error" << std::endl;
+      std::cout << e.what() << std::endl;
       return; 
     }
  
-
-
     Request request{j["id"], j["location"], j["latitude"], j["longitude"]};
-    match(request);
+    match(request, clientService);
   }
 
   private:
-  using RequestEntry = struct { Request request; std::vector<TaxiType*> taxis; };
+  using RequestEntry = struct { 
+      Request request;
+      caf::actor clientService;
+      std::vector<TaxiType*> taxis; };
 
   caf::event_based_actor* sender_;
   std::vector<TaxiType> taxis_; 
   std::vector<RequestEntry> requests_;
 
   void dispatch(TaxiType&, const json&);
-  void match(const Request&);
+  void match(const Request&, caf::actor);
+  double calculateTime(const Request&, caf::io::connection_handle);
+  void removeGarbage(std::string&);
 };
 
-void TaxiServiceCore::match(const Request& request)
+void TaxiServiceCore::match(const Request& request, caf::actor clientService)
 {
   try
   {
     RequestEntry entry;
     entry.request = request;
+    entry.clientService = clientService;
     requests_.push_back(entry);
 
     auto it = std::find_if(requests_.begin(), requests_.end(),
@@ -188,6 +213,22 @@ void TaxiServiceCore::match(const Request& request)
   {
     std::cerr << e.what() << std::endl;
 	}
+}
+
+double TaxiServiceCore::calculateTime(const Request& request, 
+    caf::io::connection_handle handle)
+{
+  auto it = std::find_if(taxis_.begin(), taxis_.end(),
+      [handle](const TaxiType& taxi)
+      {
+        return taxi.handle == handle; 
+      });
+
+  double distance = distanceEarth(request.latitude, request.longitude, 
+    it->data.latitude, it->data.longitude);
+  double time = distance / 30.0; 
+  
+  return time * 60;
 }
 
 } // TaxiService

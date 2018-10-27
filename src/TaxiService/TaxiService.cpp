@@ -27,7 +27,8 @@ behavior taxiServiceBehavior(stateful_actor<TaxiServiceState>* self)
 
     [=](const std::string& msg)
     {
-      self->state.core.sendRequest(msg);
+      self->state.core.sendRequest(msg,
+          actor_cast<actor>(self->current_sender()));
     }
 
   };

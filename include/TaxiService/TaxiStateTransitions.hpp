@@ -54,7 +54,7 @@ class TaxiStateTransitions {
     auto isFirst = [](ServiceCore* core, caf::io::connection_handle handle,
         auto event)
     {
-      return core->isFirst(handle, event.id);
+      return core->isFirst(handle, event);
     };
 
     auto isAccept = [](auto event)

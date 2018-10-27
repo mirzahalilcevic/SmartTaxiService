@@ -24,6 +24,11 @@ behavior clientServiceBehavior(stateful_actor<ClientServiceState>* self,
     [=](const caf::io::new_data_msg& msg)
     {
       self->state.core.handle(msg);
+    },
+
+    [=](const Response& response)
+    {
+      self->state.core.sendResponse(response);
     }
 
   };

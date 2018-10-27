@@ -31,7 +31,17 @@ class ClientStateTransitions {
       core->send(core->getTaxiService(), request.dump());
     };
 
-    auto notifyResponse = [](){};
+    auto notifyResponse = [](ServiceCore* core,
+      caf::io::connection_handle handle, auto event)
+    {
+      json response;
+      response["type"] = "response";
+      response["accept"] = event.accept;
+      response["latitude"] = event.latitude;
+      response["longitude"] = event.longitude;
+
+      core->send(core->getWorker(handle), response.dump());
+    };
 
     return make_transition_table(
       

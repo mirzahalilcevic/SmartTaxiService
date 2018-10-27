@@ -26,6 +26,7 @@ class ClientServiceCore : public ServiceCore
     caf::actor worker;
     caf::io::connection_handle handle;
     std::unique_ptr<StateMachine> stateMachine;
+    Request request;
 
     ClientType(ServiceCore* core, caf::actor w,
         caf::io::connection_handle h)
@@ -60,18 +61,20 @@ class ClientServiceCore : public ServiceCore
 
   inline void handle(const caf::io::new_data_msg& msg)
   {
-    std::string buffer;
-    buffer.reserve(msg.buf.size());
-  	std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
+    // std::string buffer;
+    // buffer.reserve(msg.buf.size());
+  	// std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
+
+    // removeGarbage(buffer);
 
     json j;
   	try 
     {
-      j = json::parse(buffer.c_str()); 
+      j = json::parse(msg.buf); 
     } 
-    catch(...) 
+    catch(const json::exception& e) 
     { 
-      std::cout << "[client] json parse error" << std::endl;
+      std::cout << e.what() << std::endl;
       return; 
     }
     
@@ -88,7 +91,8 @@ class ClientServiceCore : public ServiceCore
       boost::uuids::uuid id = gen_();
       Request request{boost::lexical_cast<std::string>(id), j["location"],
           j["latitude"], j["longitude"]};
-      it->stateMachine->process_event(request); 
+      it->request = request;
+      it->stateMachine->process_event(request);
     }
   }
   
@@ -116,10 +120,23 @@ class ClientServiceCore : public ServiceCore
     return taxiService_;
   }
 
-  inline bool isFirst(caf::io::connection_handle handle, const std::string& id)
-      override
+  inline bool isFirst(caf::io::connection_handle handle, 
+      Response response) override
   {
     // nop
+  }
+
+  inline void sendResponse(const Response& response)
+  {
+    auto it = std::find_if(clients_.begin(), clients_.end(),
+        [response](const ClientType& client)
+        {
+          return client.request.id == response.id;
+        });
+
+    if (it == clients_.end()) return;
+
+    it->stateMachine->process_event(response);
   }
 
   private:
@@ -127,6 +144,8 @@ class ClientServiceCore : public ServiceCore
   caf::event_based_actor* sender_;
   std::vector<ClientType> clients_; 
   caf::actor taxiService_;
+
+  void removeGarbage(std::string&);
 };
 
 } // ClientService
