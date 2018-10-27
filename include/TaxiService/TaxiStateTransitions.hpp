@@ -28,6 +28,7 @@ class TaxiStateTransitions {
       request["latitude"] = event.latitude;
       request["longitude"] = event.longitude;
 
+      std::cout << "[taxi] " << request.dump() << std::endl;
       core->send(core->getWorker(handle), request.dump());
     };
     
@@ -38,6 +39,7 @@ class TaxiStateTransitions {
       accept["type"] = "accept";
       accept["id"] = event.id;
 
+      std::cout << "[taxi] " << accept.dump() << std::endl;
       core->send(core->getWorker(handle), accept.dump());
     };
 
@@ -48,6 +50,7 @@ class TaxiStateTransitions {
       reject["type"] = "reject";
       reject["id"] = event.id;
 
+      std::cout << "[taxi] " << reject.dump() << std::endl;
       core->send(core->getWorker(handle), reject.dump());
     };
 
@@ -55,6 +58,18 @@ class TaxiStateTransitions {
         auto event)
     {
       return core->isFirst(handle, event);
+    };
+
+    auto isLast = [](ServiceCore* core, caf::io::connection_handle handle,
+        auto event)
+    {
+      return core->isLast(handle, event);
+    };
+
+    auto removeEntry = [](ServiceCore* core, caf::io::connection_handle handle,
+        auto event)
+    {
+      return core->removeEntry(handle, event);
     };
 
     auto isAccept = [](auto event)
@@ -66,13 +81,15 @@ class TaxiStateTransitions {
 
       *"Normal"_s + event<Request> / sendRequest = "WaitingForResponse"_s,
 
-      "WaitingForResponse"_s + event<Response>[isFirst && isAccept] / notifyAccept = "Normal"_s,
+      "WaitingForResponse"_s + event<Response>[isAccept && isFirst] / notifyAccept = "Normal"_s,
 
-      "WaitingForResponse"_s + event<Response>[!isFirst && isAccept] / notifyReject = "Normal"_s,
+      "WaitingForResponse"_s + event<Response>[isAccept && !isFirst] / notifyReject = "Normal"_s,
 
-      "WaitingForResponse"_s + event<Response>[!isAccept] = "Normal"_s,
+      "WaitingForResponse"_s + event<Response>[!isAccept && isLast] / removeEntry = "Normal"_s,
 
-      "WaitingForResponse"_s + event<Cancel> / notifyReject = "Normal"_s 
+      "WaitingForResponse"_s + event<Response>[!isAccept && !isLast] / removeEntry = "Normal"_s, 
+
+      "WaitingForResponse"_s + event<Cancel> / notifyReject = "Normal"_s
 
     );
   }

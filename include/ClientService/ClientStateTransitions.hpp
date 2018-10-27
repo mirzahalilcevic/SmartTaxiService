@@ -28,6 +28,7 @@ class ClientStateTransitions {
       request["latitude"] = event.latitude;
       request["longitude"] = event.longitude;
 
+      std::cout << "[client] " << request.dump() << std::endl;
       core->send(core->getTaxiService(), request.dump());
     };
 
@@ -40,6 +41,7 @@ class ClientStateTransitions {
       response["latitude"] = event.latitude;
       response["longitude"] = event.longitude;
 
+      std::cout << "[client] " << response.dump() << std::endl;
       core->send(core->getWorker(handle), response.dump());
     };
 

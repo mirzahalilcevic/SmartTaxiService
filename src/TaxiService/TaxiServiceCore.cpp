@@ -17,15 +17,12 @@ void TaxiServiceCore::dispatch(TaxiType& taxi, const json& j)
   }
 }
 
-void TaxiServiceCore::removeGarbage(std::string& buffer)
+void blockingThread(std::function<void(const boost::system::error_code&)> f)
 {
-  for (auto it = buffer.rbegin(); it != buffer.rend(); ++it)
-  {
-    if (*it == '}')
-      break;
-    else
-      buffer.pop_back();
-  }
+  boost::asio::io_service io;
+  boost::asio::deadline_timer t{io, boost::posix_time::seconds(10)};
+  t.async_wait(f);
+  io.run();
 }
 
 } // TaxiService

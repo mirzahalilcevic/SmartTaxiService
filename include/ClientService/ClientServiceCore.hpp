@@ -61,12 +61,6 @@ class ClientServiceCore : public ServiceCore
 
   inline void handle(const caf::io::new_data_msg& msg)
   {
-    // std::string buffer;
-    // buffer.reserve(msg.buf.size());
-  	// std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
-
-    // removeGarbage(buffer);
-
     json j;
   	try 
     {
@@ -126,6 +120,18 @@ class ClientServiceCore : public ServiceCore
     // nop
   }
 
+  inline bool isLast(caf::io::connection_handle handle,
+      Response response) override
+  {
+    // nop
+  }
+
+  inline void removeEntry(caf::io::connection_handle handle,
+      Response response) override
+  {
+    // nop
+  }
+
   inline void sendResponse(const Response& response)
   {
     auto it = std::find_if(clients_.begin(), clients_.end(),
@@ -144,8 +150,6 @@ class ClientServiceCore : public ServiceCore
   caf::event_based_actor* sender_;
   std::vector<ClientType> clients_; 
   caf::actor taxiService_;
-
-  void removeGarbage(std::string&);
 };
 
 } // ClientService

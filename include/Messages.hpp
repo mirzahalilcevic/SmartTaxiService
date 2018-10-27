@@ -12,16 +12,16 @@ struct Request
 {
   std::string id;
   std::string location;
-  double latitude;
-  double longitude;
+  double latitude = 0.0;
+  double longitude = 0.0;
 };
 
 struct Response
 {
   std::string id;
   bool accept;
-  double latitude;
-  double longitude;
+  double latitude = 0.0;
+  double longitude = 0.0;
 };
 
 struct Cancel

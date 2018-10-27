@@ -3,6 +3,9 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 #include <boost/sml.hpp>
+#include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <thread>
 
 #include "ServiceCore.hpp"
 #include "Messages.hpp"
@@ -59,12 +62,6 @@ class TaxiServiceCore : public ServiceCore
 
   inline void handle(const caf::io::new_data_msg& msg)
   {
-   	// std::string buffer;
-    // buffer.reserve(msg.buf.size());
-  	// std::copy(msg.buf.begin(), msg.buf.end(), buffer.begin());
-
-    // removeGarbage(buffer);
-
     json j;
   	try 
     {
@@ -120,12 +117,10 @@ class TaxiServiceCore : public ServiceCore
     
     if (it != requests_.end())
     {
-      // response.time = calculateTime(it->request, handle);
-
       auto taxiIt = std::find_if(taxis_.begin(), taxis_.end(),
           [handle](const TaxiType& taxi)
           {
-            return handle != taxi.handle; 
+            return handle == taxi.handle; 
           });
 
       response.latitude = taxiIt->data.latitude;
@@ -147,6 +142,47 @@ class TaxiServiceCore : public ServiceCore
       return false;
   }
 
+  inline bool isLast(caf::io::connection_handle handle,
+      Response response) override
+  {
+     auto it = std::find_if(requests_.begin(), requests_.end(),
+        [response](const RequestEntry& re)
+        {
+          return re.request.id == response.id;
+        }); 
+
+    if (it->taxis.size() == 1)
+    {
+      // sender_->send(it->clientService, response);
+      it->taxis.pop_back();
+      match(it->request, it->clientService, it->radius + 1.0);
+      return true;
+    }
+    else
+      return false;
+  }
+
+  inline void removeEntry(caf::io::connection_handle handle,
+      Response response) override
+  {
+    auto it = std::find_if(requests_.begin(), requests_.end(),
+        [response](const RequestEntry& re)
+        {
+          return re.request.id == response.id;
+        });
+
+    if (it != requests_.end())
+    {
+      auto taxiIt = std::find_if(it->taxis.begin(), it->taxis.end(),
+          [handle](TaxiType* taxi)
+          {
+            return taxi->handle == handle;
+          });
+
+      if (taxiIt != it->taxis.end()) it->taxis.erase(taxiIt);
+    }
+  }
+
   inline void sendRequest(const std::string& msg, caf::actor clientService)
   {
     json j;
@@ -164,29 +200,66 @@ class TaxiServiceCore : public ServiceCore
     match(request, clientService);
   }
 
+  inline void timeOut(const std::string& id)
+  {
+    std::cout << "TimeOut reached" << std::endl;
+
+    auto it = std::find_if(requests_.begin(), requests_.end(),
+        [id](const RequestEntry& re)
+        {
+          return re.request.id == id;
+        });
+    
+    if (it == requests_.end()) return;
+
+    Response response;
+    response.id = id;
+    response.accept = false;
+
+    sender_->send(it->clientService, response);
+
+    for (auto taxiPtr : it->taxis)
+      taxiPtr->stateMachine->process_event(Cancel{id});
+  }
+
   private:
   using RequestEntry = struct { 
       Request request;
       caf::actor clientService;
-      std::vector<TaxiType*> taxis; };
+      std::vector<TaxiType*> taxis;
+      double radius; 
+  };
 
   caf::event_based_actor* sender_;
   std::vector<TaxiType> taxis_; 
   std::vector<RequestEntry> requests_;
 
   void dispatch(TaxiType&, const json&);
-  void match(const Request&, caf::actor);
-  double calculateTime(const Request&, caf::io::connection_handle);
-  void removeGarbage(std::string&);
+  void match(const Request&, caf::actor, double = 1.0);
 };
 
-void TaxiServiceCore::match(const Request& request, caf::actor clientService)
+void blockingThread(std::function<void(const boost::system::error_code&)>);
+
+void TaxiServiceCore::match(const Request& request, caf::actor clientService, 
+    double maxRadius)
 {
   try
   {
     RequestEntry entry;
     entry.request = request;
     entry.clientService = clientService;
+    entry.radius = maxRadius;
+
+    auto id = request.id;
+    auto timeOutHandler = [this, id](const boost::system::error_code&)
+        {
+          this->timeOut(id);
+        };
+
+    auto f = std::bind(blockingThread, timeOutHandler);
+    auto t = std::thread(f);
+    t.detach();
+
     requests_.push_back(entry);
 
     auto it = std::find_if(requests_.begin(), requests_.end(),
@@ -202,33 +275,20 @@ void TaxiServiceCore::match(const Request& request, caf::actor clientService)
    	  double radius = distanceEarth(request.latitude, request.longitude, 
           taxi.data.latitude, taxi.data.longitude);
 
-      if (radius < 1.0)
+      if (radius < maxRadius)
       {
         it->taxis.push_back(&taxi);
         taxi.stateMachine->process_event(request);
       }
     }
+
+    // if (it->taxis.size() == 0)
+    //   sendRequest()
 	}
   catch (const std::logic_error e)
   {
     std::cerr << e.what() << std::endl;
 	}
-}
-
-double TaxiServiceCore::calculateTime(const Request& request, 
-    caf::io::connection_handle handle)
-{
-  auto it = std::find_if(taxis_.begin(), taxis_.end(),
-      [handle](const TaxiType& taxi)
-      {
-        return taxi.handle == handle; 
-      });
-
-  double distance = distanceEarth(request.latitude, request.longitude, 
-    it->data.latitude, it->data.longitude);
-  double time = distance / 30.0; 
-  
-  return time * 60;
 }
 
 } // TaxiService

@@ -14,6 +14,8 @@ class ServiceCore
   virtual caf::actor getWorker(caf::io::connection_handle) = 0;
   virtual caf::actor getTaxiService() = 0;
   virtual bool isFirst(caf::io::connection_handle, Response) = 0;
+  virtual bool isLast(caf::io::connection_handle, Response) = 0;
+  virtual void removeEntry(caf::io::connection_handle, Response) = 0;
   virtual ~ServiceCore() = default;
 };
 
